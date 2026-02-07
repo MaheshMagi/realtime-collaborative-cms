@@ -57,6 +57,11 @@ async def app_error_handler(request, exc: AppError):
     return JSONResponse(status_code=500, content={"detail": exc.message})
 
 
+from auth.interfaces.routes import router as auth_router
+
+app.include_router(auth_router)
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}

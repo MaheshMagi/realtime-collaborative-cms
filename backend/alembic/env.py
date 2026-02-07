@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from shared.config import settings
 from shared.infrastructure.database import Base
 
+import auth.infrastructure.orm_models  # noqa: F401
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

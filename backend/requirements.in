@@ -20,6 +20,7 @@ pycrdt
 
 # Utilities
 pydantic-settings
+email-validator
 python-multipart
 
 # Testing
