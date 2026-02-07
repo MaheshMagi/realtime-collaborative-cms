@@ -1,13 +1,11 @@
 # Realtime Collaborative CMS
 
-A collaborative Content Management System that allows multiple users to edit the same document simultaneously while maintaining data integrity and full version history.
+A collaborative Content Management System that allows multiple users to edit the same document simultaneously while maintaining data integrity.
 
 ## Features
 
 - **Real-time collaborative editing** — Multiple users can edit the same document at the same time with instant sync
 - **Conflict-free merging** — Concurrent edits are merged automatically using CRDTs (Conflict-free Replicated Data Types) via Yjs, so no user's work is ever lost
-- **Version history** — Save named versions, browse history, and restore any previous version
-- **Live presence** — See who else is editing, with live cursor positions and user indicators
 - **Offline support** — Continue editing without a connection; changes merge seamlessly on reconnect
 - **Horizontal scaling** — Stateless server instances behind a load balancer, bridged by Redis pub/sub
 
@@ -49,11 +47,11 @@ A collaborative Content Management System that allows multiple users to edit the
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.12, FastAPI, Uvicorn |
-| Real-time sync | Yjs (CRDT), y-py, y-websocket |
+| Real-time sync | Yjs (CRDT), pycrdt |
 | Database | PostgreSQL 16 |
 | Cache / Pub-Sub | Redis 7 |
-| Frontend | React 18, Vite, TipTap, Yjs, y-websocket |
-| Infrastructure | Docker Compose, Nginx |
+| Frontend | React 18, Vite, TipTap, Yjs |
+| Infrastructure | Docker Compose |
 
 ## Concurrency Strategy
 
@@ -67,110 +65,16 @@ The system uses a **hybrid approach** for handling concurrent edits:
 
 See the [Technical Design Document](docs/TECHNICAL_DESIGN.md) for a detailed comparison of OT, CRDTs, and Last-Write-Wins and how each interacts with PostgreSQL.
 
-## Project Structure (Modular Clean Architecture)
+## Project Structure
 
 The backend is organized into **feature modules** (`auth`, `documents`, `collaboration`), each following a 4-layer clean architecture:
 
 | Layer | Responsibility |
 |---|---|
-| **domain/** | Pure entities (dataclasses), repository interfaces (ABCs) |
-| **application/** | Use cases orchestrating domain objects and repository calls |
+| **domain/** | Pure entities (dataclasses), repository interfaces (Protocols) |
+| **application/** | Service functions orchestrating domain objects and repository calls |
 | **infrastructure/** | Repository implementations (SQLAlchemy/Redis), ORM models, adapters |
 | **interfaces/** | FastAPI routes, WebSocket handlers, Pydantic schemas (DTOs) |
-
-```
-realtime-collaborative-cms/
-├── docker-compose.yml
-├── backend/
-│   ├── Dockerfile
-│   ├── requirements.in                     # Unpinned dependencies
-│   ├── requirements.txt                    # Pinned (pip-compile output)
-│   ├── pytest.ini
-│   ├── alembic.ini
-│   ├── alembic/
-│   │   ├── env.py                          # Imports all ORM models → Base.metadata
-│   │   └── versions/
-│   │
-│   ├── src/
-│   │   ├── main.py                         # FastAPI app, lifespan, exception handlers, router mounting
-│   │   │
-│   │   ├── shared/                         # Cross-cutting concerns
-│   │   │   ├── config.py                   # Pydantic Settings (DB, Redis, JWT)
-│   │   │   ├── dependencies.py             # FastAPI Depends: get_db, get_current_user
-│   │   │   ├── exceptions.py               # NotFoundError, ConflictError, AuthorizationError
-│   │   │   └── infrastructure/
-│   │   │       ├── database.py             # Async SQLAlchemy engine, Base, session factory
-│   │   │       └── redis.py               # Redis connection pool
-│   │   │
-│   │   ├── auth/                           # ── AUTH MODULE ──
-│   │   │   ├── domain/
-│   │   │   │   ├── entities.py             # User dataclass
-│   │   │   │   └── repository.py           # UserRepository Protocol
-│   │   │   ├── application/
-│   │   │   │   └── services.py             # register_user, authenticate_user, verify_token
-│   │   │   ├── infrastructure/
-│   │   │   │   ├── models.py               # UserModel → 'users' table
-│   │   │   │   └── user_repository.py      # DbUserRepository
-│   │   │   └── interfaces/
-│   │   │       ├── schemas.py              # RegisterRequest, LoginRequest, TokenResponse
-│   │   │       └── routes.py               # POST /register, /login, GET /me
-│   │   │
-│   │   ├── documents/                      # ── DOCUMENTS MODULE ──
-│   │   │   ├── domain/
-│   │   │   │   ├── entities.py             # Document dataclass, DocumentStatus enum
-│   │   │   │   └── repository.py           # DocumentRepository Protocol
-│   │   │   ├── application/
-│   │   │   │   └── services.py             # create, get, list, update, delete
-│   │   │   ├── infrastructure/
-│   │   │   │   ├── models.py               # DocumentModel (optimistic locking via version)
-│   │   │   │   └── document_repository.py  # DbDocumentRepository
-│   │   │   └── interfaces/
-│   │   │       ├── schemas.py              # CreateDocRequest, UpdateDocRequest
-│   │   │       └── routes.py               # CRUD /api/documents/
-│   │   │
-│   │   └── collaboration/                  # ── COLLABORATION MODULE ──
-│   │       ├── domain/
-│   │       │   ├── entities.py             # CrdtSnapshot, CrdtUpdate dataclasses
-│   │       │   └── repository.py           # CrdtStorageRepository Protocol
-│   │       ├── application/
-│   │       │   └── services.py             # load_document_state, persist_update, create_snapshot
-│   │       ├── infrastructure/
-│   │       │   ├── models.py               # CrdtSnapshotModel, CrdtUpdateModel
-│   │       │   ├── crdt_storage_repository.py  # DbCrdtStorageRepository
-│   │       │   ├── yjs_adapter.py          # Wraps pycrdt: create, apply, encode, extract text
-│   │       │   └── redis_pubsub.py         # Redis pub/sub: publish_update, subscribe
-│   │       └── interfaces/
-│   │           └── ws_handler.py           # WebSocket endpoint: auth, sync, broadcast
-│   │
-│   └── tests/
-│       ├── conftest.py                     # Shared fixtures: test DB, auth helpers
-│       ├── auth/
-│       │   ├── test_services.py
-│       │   └── test_routes.py
-│       ├── documents/
-│       │   ├── test_services.py
-│       │   └── test_routes.py
-│       └── collaboration/
-│           ├── test_yjs_adapter.py
-│           └── test_services.py
-│
-└── frontend/                               # Vite + React + TipTap
-    ├── index.html
-    ├── package.json
-    ├── vite.config.ts                      # API + WebSocket proxy → backend :8000
-    └── src/
-        ├── main.tsx
-        ├── App.tsx                         # Router + auth guards
-        ├── lib/
-        │   ├── api.ts                      # REST API client (fetch wrapper)
-        │   ├── auth.tsx                    # AuthContext + useAuth hook
-        │   └── useCollaboration.ts         # Yjs + WebSocket hook for real-time sync
-        └── pages/
-            ├── Login.tsx
-            ├── Register.tsx
-            ├── DocumentList.tsx
-            └── Editor.tsx                  # TipTap + Yjs collaborative editor
-```
 
 ## Getting Started
 
@@ -212,6 +116,15 @@ docker compose exec postgres psql -U postgres -c "CREATE DATABASE cms_test"
 docker compose exec backend python -m pytest tests/ -v
 ```
 
+### Seed Demo Data
+
+```bash
+# With backend running, seed 2 demo users and sample documents
+python scripts/seed.py
+```
+
+Default credentials: `alice` / `password123` and `bob` / `password123`.
+
 ### Environment Variables
 
 | Variable | Default | Description |
@@ -225,34 +138,26 @@ docker compose exec backend python -m pytest tests/ -v
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `POST` | `/api/auth/register` | Register a new user |
+| `POST` | `/api/auth/login` | Authenticate and receive JWT token |
+| `GET` | `/api/auth/me` | Get current user profile |
 | `POST` | `/api/documents` | Create a new document |
 | `GET` | `/api/documents` | List all documents |
 | `GET` | `/api/documents/{id}` | Get document metadata |
 | `PATCH` | `/api/documents/{id}` | Update metadata (title, status) |
-| `GET` | `/api/documents/{id}/versions` | List version history |
-| `POST` | `/api/documents/{id}/versions` | Save a named version |
-| `POST` | `/api/documents/{id}/restore/{version}` | Restore a previous version |
+| `DELETE` | `/api/documents/{id}` | Delete a document |
 | `WS` | `/ws/doc/{id}` | Real-time collaborative editing |
 
 Full API documentation is available at `/docs` (Swagger UI) when the backend is running.
 
 ## Database Schema
 
-The system uses six PostgreSQL tables:
+The system uses four PostgreSQL tables:
 
 - **users** — User accounts and authentication
 - **documents** — Document metadata with optimistic locking (LWW)
 - **document_snapshots** — Periodic CRDT state captures (binary)
 - **document_updates** — Incremental CRDT updates between snapshots (binary)
-- **document_versions** — User-saved named versions with plaintext extraction
-- **active_sessions** — Currently connected editing sessions
-
-## Testing
-
-```bash
-cd backend
-PYTHONPATH=src python -m pytest tests/ -v
-```
 
 ## Scaling
 
