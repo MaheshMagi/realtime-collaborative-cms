@@ -8,6 +8,7 @@ from shared.dependencies import get_db
 from shared.infrastructure.database import Base
 
 import auth.infrastructure.orm_models  # noqa: F401
+import documents.infrastructure.models  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.replace("/cms", "/cms_test")
 
