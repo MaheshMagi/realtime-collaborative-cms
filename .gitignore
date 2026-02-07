@@ -1,15 +1,36 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
-dist/
-build/
 *.egg
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+logs
+*.log
+npm-debug.log*
+
+# Environment
 .env
 .venv/
 venv/
-node_modules/
-.DS_Store
+
+# Editors
 .idea/
 .vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
+# OS
+.DS_Store
+
+# Build
+build/
