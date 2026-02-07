@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from shared.config import settings
 from shared.infrastructure.database import Base
 
-import auth.infrastructure.orm_models  # noqa: F401
+import auth.infrastructure.models  # noqa: F401
 import documents.infrastructure.models  # noqa: F401
 
 config = context.config

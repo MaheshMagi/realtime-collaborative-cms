@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.domain.entities import User
-from auth.infrastructure.orm_models import UserModel
+from auth.infrastructure.models import UserModel
 
 
 class DbUserRepository:
