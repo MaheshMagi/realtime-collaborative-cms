@@ -29,6 +29,31 @@ async def test_engine():
     await engine.dispose()
 
 
+async def create_user_and_get_headers(client: AsyncClient, suffix: str = "") -> dict:
+    """Register a user and return auth headers."""
+    await client.post(
+        "/api/auth/register",
+        json={
+            "username": f"testuser{suffix}",
+            "email": f"test{suffix}@example.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "password": "secret123",
+        },
+    )
+    resp = await client.post(
+        "/api/auth/login",
+        json={"email": f"test{suffix}@example.com", "password": "secret123"},
+    )
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def auth_headers(client) -> dict:
+    return await create_user_and_get_headers(client)
+
+
 @pytest.fixture
 async def db(test_engine):
     session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
