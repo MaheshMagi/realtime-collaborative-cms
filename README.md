@@ -115,80 +115,84 @@ realtime-collaborative-cms/
 │   │   │       ├── schemas.py              # RegisterRequest, LoginRequest, TokenResponse
 │   │   │       └── routes.py               # POST /register, /login, GET /me
 │   │   │
-│   │   └── documents/                      # ── DOCUMENTS MODULE ──
+│   │   ├── documents/                      # ── DOCUMENTS MODULE ──
+│   │   │   ├── domain/
+│   │   │   │   ├── entities.py             # Document dataclass, DocumentStatus enum
+│   │   │   │   └── repository.py           # DocumentRepository Protocol
+│   │   │   ├── application/
+│   │   │   │   └── services.py             # create, get, list, update, delete
+│   │   │   ├── infrastructure/
+│   │   │   │   ├── models.py               # DocumentModel (optimistic locking via version)
+│   │   │   │   └── document_repository.py  # DbDocumentRepository
+│   │   │   └── interfaces/
+│   │   │       ├── schemas.py              # CreateDocRequest, UpdateDocRequest
+│   │   │       └── routes.py               # CRUD /api/documents/
+│   │   │
+│   │   └── collaboration/                  # ── COLLABORATION MODULE ──
 │   │       ├── domain/
-│   │       │   ├── entities.py             # Document dataclass, DocumentStatus enum
-│   │       │   └── repository.py           # DocumentRepository Protocol
+│   │       │   ├── entities.py             # CrdtSnapshot, CrdtUpdate dataclasses
+│   │       │   └── repository.py           # CrdtStorageRepository Protocol
 │   │       ├── application/
-│   │       │   └── services.py             # create, get, list, update, delete
+│   │       │   └── services.py             # load_document_state, persist_update, create_snapshot
 │   │       ├── infrastructure/
-│   │       │   ├── models.py               # DocumentModel (optimistic locking via version)
-│   │       │   └── document_repository.py  # DbDocumentRepository
+│   │       │   ├── models.py               # CrdtSnapshotModel, CrdtUpdateModel
+│   │       │   ├── crdt_storage_repository.py  # DbCrdtStorageRepository
+│   │       │   ├── yjs_adapter.py          # Wraps pycrdt: create, apply, encode, extract text
+│   │       │   └── redis_pubsub.py         # Redis pub/sub: publish_update, subscribe
 │   │       └── interfaces/
-│   │           ├── schemas.py              # CreateDocRequest, UpdateDocRequest
-│   │           └── routes.py               # CRUD /api/documents/
+│   │           └── ws_handler.py           # WebSocket endpoint: auth, sync, broadcast
 │   │
 │   └── tests/
 │       ├── conftest.py                     # Shared fixtures: test DB, auth helpers
 │       ├── auth/
 │       │   ├── test_services.py
 │       │   └── test_routes.py
-│       └── documents/
-│           ├── test_services.py
-│           └── test_routes.py
+│       ├── documents/
+│       │   ├── test_services.py
+│       │   └── test_routes.py
+│       └── collaboration/
+│           ├── test_yjs_adapter.py
+│           └── test_services.py
 │
-└── frontend/                               # Vite + React 18 + TipTap
+└── frontend/                               # Vite + React + TipTap
     ├── index.html
     ├── package.json
-    ├── vite.config.ts                      # API proxy → backend :8000
+    ├── vite.config.ts                      # API + WebSocket proxy → backend :8000
     └── src/
         ├── main.tsx
         ├── App.tsx                         # Router + auth guards
         ├── lib/
         │   ├── api.ts                      # REST API client (fetch wrapper)
-        │   └── auth.tsx                    # AuthContext + useAuth hook
+        │   ├── auth.tsx                    # AuthContext + useAuth hook
+        │   └── useCollaboration.ts         # Yjs + WebSocket hook for real-time sync
         └── pages/
             ├── Login.tsx
             ├── Register.tsx
             ├── DocumentList.tsx
-            └── Editor.tsx                  # TipTap rich text editor
+            └── Editor.tsx                  # TipTap + Yjs collaborative editor
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker and Docker Compose (for PostgreSQL and Redis)
-- Python 3.12+
-- Node.js 18+
+- Docker and Docker Compose
+- Node.js 18+ (for frontend dev server)
 
-### 1. Start Infrastructure
-
-```bash
-docker compose up postgres redis -d
-```
-
-### 2. Backend
+### 1. Start Backend Services
 
 ```bash
-# Create and activate virtual env
-python -m venv .venv
-source .venv/bin/activate
+# Start PostgreSQL, Redis, and backend
+docker compose up -d
 
-# Install dependencies
-cd backend
-pip install -r requirements.txt
-
-# Run migrations
-PYTHONPATH=src alembic upgrade head
-
-# Start the server
-PYTHONPATH=src uvicorn main:app --reload --port 8000
+# Run migrations (one-time)
+docker compose exec backend alembic upgrade head
 ```
 
 Backend API available at http://localhost:8000 (Swagger docs at `/docs`).
+Local file changes auto-reload inside the container via volume mount.
 
-### 3. Frontend (separate terminal)
+### 2. Start Frontend (separate terminal)
 
 ```bash
 cd frontend
@@ -196,18 +200,16 @@ npm install
 npm run dev
 ```
 
-Frontend available at http://localhost:5173 (proxies `/api` requests to backend).
+Frontend available at http://localhost:5173 (proxies `/api` and `/ws` requests to backend).
 
 ### Running Tests
 
 ```bash
-cd backend
-
 # Create test database (one-time)
 docker compose exec postgres psql -U postgres -c "CREATE DATABASE cms_test"
 
 # Run tests
-PYTHONPATH=src python -m pytest tests/ -v
+docker compose exec backend python -m pytest tests/ -v
 ```
 
 ### Environment Variables
