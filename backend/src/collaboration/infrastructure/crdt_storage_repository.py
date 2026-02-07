@@ -66,11 +66,16 @@ class DbCrdtStorageRepository:
         await self.session.commit()
 
     async def get_next_seq(self, document_id: UUID) -> int:
-        result = await self.session.execute(
+        # Consider both updates and snapshots to avoid seq collision after pruning
+        update_max = await self.session.execute(
             select(func.coalesce(func.max(CrdtUpdateModel.update_seq), 0))
             .where(CrdtUpdateModel.document_id == document_id)
         )
-        return result.scalar_one() + 1
+        snapshot_max = await self.session.execute(
+            select(func.coalesce(func.max(CrdtSnapshotModel.update_seq), 0))
+            .where(CrdtSnapshotModel.document_id == document_id)
+        )
+        return max(update_max.scalar_one(), snapshot_max.scalar_one()) + 1
 
 
 def _snapshot_to_entity(model: CrdtSnapshotModel) -> CrdtSnapshot:
