@@ -2,18 +2,23 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Collaboration from '@tiptap/extension-collaboration';
 import { getDocument, updateDocument, type Document } from '../lib/api';
+import { useCollaboration } from '../lib/useCollaboration';
 
 export default function Editor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [doc, setDoc] = useState<Document | null>(null);
   const [saving, setSaving] = useState(false);
+  const { ydoc, connected, synced } = useCollaboration(id);
 
   const editor = useEditor({
-    extensions: [StarterKit],
-    content: '<p>Start writing...</p>',
-  });
+    extensions: [
+      StarterKit,
+      Collaboration.configure({ document: ydoc }),
+    ],
+  }, [synced]);
 
   useEffect(() => {
     if (!id) return;
@@ -48,10 +53,17 @@ export default function Editor() {
           {doc.title}
         </h1>
         <span className="doc-status">{doc.status}</span>
+        <span className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
+          {connected ? (synced ? 'Synced' : 'Syncing...') : 'Disconnected'}
+        </span>
         {saving && <span>Saving...</span>}
       </header>
       <div className="editor-container">
-        <EditorContent editor={editor} />
+        {synced ? (
+          <EditorContent editor={editor} />
+        ) : (
+          <p>Connecting...</p>
+        )}
       </div>
     </div>
   );
