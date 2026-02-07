@@ -83,135 +83,131 @@ realtime-collaborative-cms/
 ├── docker-compose.yml
 ├── backend/
 │   ├── Dockerfile
-│   ├── requirements.txt
+│   ├── requirements.in                     # Unpinned dependencies
+│   ├── requirements.txt                    # Pinned (pip-compile output)
+│   ├── pytest.ini
 │   ├── alembic.ini
 │   ├── alembic/
-│   │   ├── env.py                          # Imports orm_registry → Base.metadata
+│   │   ├── env.py                          # Imports all ORM models → Base.metadata
 │   │   └── versions/
 │   │
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                         # FastAPI app factory, lifespan, router mounting
+│   ├── src/
+│   │   ├── main.py                         # FastAPI app, lifespan, exception handlers, router mounting
 │   │   │
 │   │   ├── shared/                         # Cross-cutting concerns
 │   │   │   ├── config.py                   # Pydantic Settings (DB, Redis, JWT)
-│   │   │   ├── dependencies.py             # FastAPI Depends: get_db, get_redis, get_current_user
+│   │   │   ├── dependencies.py             # FastAPI Depends: get_db, get_current_user
 │   │   │   ├── exceptions.py               # NotFoundError, ConflictError, AuthorizationError
 │   │   │   └── infrastructure/
 │   │   │       ├── database.py             # Async SQLAlchemy engine, Base, session factory
-│   │   │       ├── redis.py                # aioredis connection pool
-│   │   │       └── orm_registry.py         # Imports all ORM models for Alembic
+│   │   │       └── redis.py               # Redis connection pool
 │   │   │
 │   │   ├── auth/                           # ── AUTH MODULE ──
 │   │   │   ├── domain/
 │   │   │   │   ├── entities.py             # User dataclass
-│   │   │   │   └── repository.py           # ABC UserRepository
+│   │   │   │   └── repository.py           # UserRepository Protocol
 │   │   │   ├── application/
-│   │   │   │   └── use_cases.py            # RegisterUser, AuthenticateUser, VerifyToken
+│   │   │   │   └── services.py             # register_user, authenticate_user, verify_token
 │   │   │   ├── infrastructure/
-│   │   │   │   ├── orm_models.py           # UserModel → 'users' table
-│   │   │   │   └── user_repository.py      # SqlAlchemyUserRepository
+│   │   │   │   ├── models.py               # UserModel → 'users' table
+│   │   │   │   └── user_repository.py      # DbUserRepository
 │   │   │   └── interfaces/
 │   │   │       ├── schemas.py              # RegisterRequest, LoginRequest, TokenResponse
 │   │   │       └── routes.py               # POST /register, /login, GET /me
 │   │   │
-│   │   ├── documents/                      # ── DOCUMENTS MODULE ──
-│   │   │   ├── domain/
-│   │   │   │   ├── entities.py             # Document, DocumentVersion dataclasses
-│   │   │   │   └── repository.py           # ABC DocumentRepository, DocumentVersionRepository
-│   │   │   ├── application/
-│   │   │   │   └── use_cases.py            # CreateDocument, UpdateMetadata, SaveVersion, RestoreVersion
-│   │   │   ├── infrastructure/
-│   │   │   │   ├── orm_models.py           # DocumentModel, DocumentVersionModel
-│   │   │   │   └── document_repository.py  # SqlAlchemy repos (optimistic locking)
-│   │   │   └── interfaces/
-│   │   │       ├── schemas.py              # CreateDocRequest, UpdateDocRequest, VersionResponse
-│   │   │       └── routes.py               # CRUD + /versions + /restore/{version}
-│   │   │
-│   │   └── collaboration/                  # ── COLLABORATION MODULE ──
+│   │   └── documents/                      # ── DOCUMENTS MODULE ──
 │   │       ├── domain/
-│   │       │   ├── entities.py             # ActiveSession, PresenceInfo, CrdtSnapshot, CrdtUpdate
-│   │       │   └── repository.py           # ABC CrdtStorageRepository, SessionRepository
+│   │       │   ├── entities.py             # Document dataclass, DocumentStatus enum
+│   │       │   └── repository.py           # DocumentRepository Protocol
 │   │       ├── application/
-│   │       │   └── use_cases.py            # JoinDocument, LeaveDocument, PersistCrdtUpdate,
-│   │       │                               #   CreateSnapshot, LoadDocumentState
+│   │       │   └── services.py             # create, get, list, update, delete
 │   │       ├── infrastructure/
-│   │       │   ├── orm_models.py           # SnapshotModel, UpdateModel, ActiveSessionModel
-│   │       │   ├── crdt_storage_repository.py
-│   │       │   ├── session_repository.py   # Redis-backed presence tracking
-│   │       │   ├── redis_pubsub.py         # Cross-server update fanout
-│   │       │   └── yjs_adapter.py          # Wraps pycrdt: create, apply, encode, extract text
+│   │       │   ├── models.py               # DocumentModel (optimistic locking via version)
+│   │       │   └── document_repository.py  # DbDocumentRepository
 │   │       └── interfaces/
-│   │           ├── schemas.py              # WS message types, PresenceResponse
-│   │           └── ws_handler.py           # WebSocket endpoint lifecycle + Yjs sync
+│   │           ├── schemas.py              # CreateDocRequest, UpdateDocRequest
+│   │           └── routes.py               # CRUD /api/documents/
 │   │
 │   └── tests/
-│       ├── conftest.py                     # Shared fixtures: test DB, mock Redis
+│       ├── conftest.py                     # Shared fixtures: test DB, auth helpers
 │       ├── auth/
-│       ├── documents/
-│       └── collaboration/
+│       │   ├── test_services.py
+│       │   └── test_routes.py
+│       └── documents/
+│           ├── test_services.py
+│           └── test_routes.py
 │
-├── frontend/                               # Vite + React 18 + TipTap
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── src/
-│   │   ├── main.tsx                        # React entry point
-│   │   ├── App.tsx                         # Router + layout
-│   │   ├── components/
-│   │   │   ├── Editor.tsx                  # TipTap editor with Yjs collaboration
-│   │   │   ├── PresenceBar.tsx             # Active users + cursors
-│   │   │   ├── DocumentList.tsx            # Document listing page
-│   │   │   └── VersionHistory.tsx          # Version sidebar with restore
-│   │   ├── hooks/
-│   │   │   ├── useYjsConnection.ts         # Yjs Y.Doc + WebSocket provider
-│   │   │   └── usePresence.ts              # Awareness protocol (cursors, users)
-│   │   └── lib/
-│   │       └── api.ts                      # REST API client (fetch wrapper)
-│   └── public/
-└── scripts/
-    └── seed.py
+└── frontend/                               # Vite + React 18 + TipTap
+    ├── index.html
+    ├── package.json
+    ├── vite.config.ts                      # API proxy → backend :8000
+    └── src/
+        ├── main.tsx
+        ├── App.tsx                         # Router + auth guards
+        ├── lib/
+        │   ├── api.ts                      # REST API client (fetch wrapper)
+        │   └── auth.tsx                    # AuthContext + useAuth hook
+        └── pages/
+            ├── Login.tsx
+            ├── Register.tsx
+            ├── DocumentList.tsx
+            └── Editor.tsx                  # TipTap rich text editor
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Python 3.12+ (for local development without Docker)
-- Node.js 18+ (for frontend development)
+- Docker and Docker Compose (for PostgreSQL and Redis)
+- Python 3.12+
+- Node.js 18+
 
-### Quick Start
+### 1. Start Infrastructure
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd realtime-collaborative-cms
-
-# Start all services
-docker compose up --build
-
-# The application will be available at:
-# Frontend:  http://localhost:3000
-# Backend:   http://localhost:8000
-# API docs:  http://localhost:8000/docs
+docker compose up postgres redis -d
 ```
 
-### Local Development
+### 2. Backend
 
 ```bash
-# Backend
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+# Create and activate virtual env
+python -m venv .venv
+source .venv/bin/activate
 
-# Frontend (separate terminal)
+# Install dependencies
+cd backend
+pip install -r requirements.txt
+
+# Run migrations
+PYTHONPATH=src alembic upgrade head
+
+# Start the server
+PYTHONPATH=src uvicorn main:app --reload --port 8000
+```
+
+Backend API available at http://localhost:8000 (Swagger docs at `/docs`).
+
+### 3. Frontend (separate terminal)
+
+```bash
 cd frontend
-# Serve with any static file server
-python -m http.server 3000
+npm install
+npm run dev
+```
+
+Frontend available at http://localhost:5173 (proxies `/api` requests to backend).
+
+### Running Tests
+
+```bash
+cd backend
+
+# Create test database (one-time)
+docker compose exec postgres psql -U postgres -c "CREATE DATABASE cms_test"
+
+# Run tests
+PYTHONPATH=src python -m pytest tests/ -v
 ```
 
 ### Environment Variables
@@ -220,7 +216,8 @@ python -m http.server 3000
 |---|---|---|
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/cms` | PostgreSQL connection string |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
-| `JWT_SECRET` | `changeme` | Secret key for JWT token signing |
+| `JWT_SECRET` | `dev-secret` | Secret key for JWT token signing |
+| `JWT_EXPIRATION_MINUTES` | `60` | Token expiry time |
 
 ## API Overview
 
@@ -251,15 +248,8 @@ The system uses six PostgreSQL tables:
 ## Testing
 
 ```bash
-# Run backend tests
 cd backend
-pytest
-
-# Run with coverage
-pytest --cov=app --cov-report=term-missing
-
-# Load testing (requires k6)
-k6 run scripts/load_test.js
+PYTHONPATH=src python -m pytest tests/ -v
 ```
 
 ## Scaling
