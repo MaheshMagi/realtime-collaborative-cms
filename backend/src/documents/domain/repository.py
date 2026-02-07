@@ -1,0 +1,16 @@
+from typing import Protocol
+from uuid import UUID
+
+from documents.domain.entities import Document
+
+
+class DocumentRepository(Protocol):
+    async def get_by_id(self, document_id: UUID) -> Document | None: ...
+
+    async def list_all(self) -> list[Document]: ...
+
+    async def create(self, document: Document) -> Document: ...
+
+    async def update(self, document: Document, expected_version: int) -> Document: ...
+
+    async def delete(self, document_id: UUID) -> None: ...
