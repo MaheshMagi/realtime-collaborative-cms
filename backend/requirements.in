@@ -1,0 +1,28 @@
+# Web framework
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy[asyncio]
+asyncpg
+alembic
+
+# Redis
+redis[hiredis]
+
+# Auth
+pyjwt
+passlib[bcrypt]
+bcrypt
+
+# CRDT
+pycrdt
+
+# Utilities
+pydantic-settings
+python-multipart
+
+# Testing
+pytest
+pytest-asyncio
+httpx
