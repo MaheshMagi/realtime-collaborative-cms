@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from shared.exceptions import (
     AppError,
     AuthenticationError,
+    AuthorizationError,
     ConflictError,
     NotFoundError,
 )
@@ -52,14 +53,21 @@ async def auth_error_handler(request, exc: AuthenticationError):
     return JSONResponse(status_code=401, content={"detail": exc.message})
 
 
+@app.exception_handler(AuthorizationError)
+async def authz_error_handler(request, exc: AuthorizationError):
+    return JSONResponse(status_code=403, content={"detail": exc.message})
+
+
 @app.exception_handler(AppError)
 async def app_error_handler(request, exc: AppError):
     return JSONResponse(status_code=500, content={"detail": exc.message})
 
 
 from auth.interfaces.routes import router as auth_router
+from documents.interfaces.routes import router as documents_router
 
 app.include_router(auth_router)
+app.include_router(documents_router)
 
 
 @app.get("/health")
