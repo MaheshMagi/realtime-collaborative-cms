@@ -65,7 +65,7 @@ The system uses a **hybrid approach** for handling concurrent edits:
 | Metadata (title, status) | Last-Write-Wins + optimistic locking | Simple fields, low contention |
 | Real-time transport | WebSocket + Redis pub/sub | Low-latency fan-out across server instances |
 
-See the [Technical Design Document](docs/DESIGN.md) for a detailed comparison of OT, CRDTs, and Last-Write-Wins and how each interacts with PostgreSQL.
+See the [Technical Design Document](docs/TECHNICAL_DESIGN.md) for a detailed comparison of OT, CRDTs, and Last-Write-Wins and how each interacts with PostgreSQL.
 
 ## Project Structure (Modular Clean Architecture)
 
