@@ -70,7 +70,7 @@ def create_document(client: httpx.Client, token: str, title: str) -> None:
 def main() -> None:
     print(f"Seeding against {BASE_URL}\n")
 
-    with httpx.Client(timeout=10) as client:
+    with httpx.Client(timeout=10, follow_redirects=True) as client:
         # 1. Register users
         print("Users:")
         for user in USERS:
