@@ -64,10 +64,12 @@ async def app_error_handler(request, exc: AppError):
 
 
 from auth.interfaces.routes import router as auth_router
+from collaboration.interfaces.ws_handler import router as ws_router
 from documents.interfaces.routes import router as documents_router
 
 app.include_router(auth_router)
 app.include_router(documents_router)
+app.include_router(ws_router)
 
 
 @app.get("/health")
