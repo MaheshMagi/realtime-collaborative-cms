@@ -12,7 +12,6 @@ redis[hiredis]
 
 # Auth
 pyjwt
-passlib[bcrypt]
 bcrypt
 
 # CRDT

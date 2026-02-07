@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
-from passlib.hash import bcrypt
 
 from auth.domain.entities import User
 from auth.domain.repository import UserRepository
@@ -27,7 +27,7 @@ async def register_user(
         email=email,
         first_name=first_name,
         last_name=last_name,
-        password_hash=bcrypt.hash(password),
+        password_hash=bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(),
     )
     return await repo.create(user)
 
@@ -36,7 +36,7 @@ async def authenticate_user(
     repo: UserRepository, email: str, password: str
 ) -> tuple[User, str]:
     user = await repo.get_by_email(email)
-    if not user or not bcrypt.verify(password, user.password_hash):
+    if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
         raise AuthenticationError("Invalid email or password")
 
     token = _create_token(str(user.id))
